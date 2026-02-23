@@ -9,7 +9,6 @@ CLIENT_ID = "f5b45838eb4b4e008f461f2bd6c54bbc"
 CLIENT_SECRET = "7cf4d6f251ca49b791a784e6b929c4fe"
 REDIRECT_URI = "http://127.0.0.1:8888/callback"
 
-# scope defines what we're asking permission to access
 SCOPE = "playlist-read-private user-library-read"
 
 def connect():
@@ -24,4 +23,43 @@ def connect():
     print(f"[+] Connected as: {user['display_name']}")
     return sp
 
+def get_playlists(sp):
+    print("\n[*] Fetching your playlists...\n")
+    playlists = sp.current_user_playlists()
+    results = []
+
+    for i, playlist in enumerate(playlists['items']):
+        print(f"  {i + 1}. {playlist['name']} ({playlist['tracks']['total']} tracks)")
+        results.append(playlist)
+
+    return results
+
+def get_tracks(sp, playlist):
+    print(f"\n[*] Fetching tracks from: {playlist['name']}...\n")
+    tracks = []
+    # spotify pages results so we loop until we have everything
+    response = sp.playlist_tracks(playlist['id'])
+    while response:
+        for item in response['items']:
+            track = item.get('track')
+            if track:
+                tracks.append({
+                    'name': track['name'],
+                    'artist': track['artists'][0]['name'],
+                    'id': track['id']
+                })
+        response = sp.next(response) if response['next'] else None
+
+    for t in tracks[:10]:
+        print(f"  {t['artist']} — {t['name']}")
+    if len(tracks) > 10:
+        print(f"  ... and {len(tracks) - 10} more")
+
+    return tracks
+
 sp = connect()
+playlists = get_playlists(sp)
+
+print("\nEnter playlist number to see tracks: ", end="")
+choice = int(input()) - 1
+tracks = get_tracks(sp, playlists[choice])
