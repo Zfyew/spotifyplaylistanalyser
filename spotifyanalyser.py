@@ -27,17 +27,14 @@ def get_playlists(sp):
     print("\n[*] Fetching your playlists...\n")
     playlists = sp.current_user_playlists()
     results = []
-
     for i, playlist in enumerate(playlists['items']):
         print(f"  {i + 1}. {playlist['name']} ({playlist['tracks']['total']} tracks)")
         results.append(playlist)
-
     return results
 
 def get_tracks(sp, playlist):
     print(f"\n[*] Fetching tracks from: {playlist['name']}...\n")
     tracks = []
-    # spotify pages results so we loop until we have everything
     response = sp.playlist_tracks(playlist['id'])
     while response:
         for item in response['items']:
@@ -49,17 +46,36 @@ def get_tracks(sp, playlist):
                     'id': track['id']
                 })
         response = sp.next(response) if response['next'] else None
-
-    for t in tracks[:10]:
-        print(f"  {t['artist']} — {t['name']}")
-    if len(tracks) > 10:
-        print(f"  ... and {len(tracks) - 10} more")
-
     return tracks
+
+def get_audio_features(sp, tracks):
+    print("\n[*] Pulling audio features for each track...\n")
+    # spotify limits to 100 ids per request so we batch them
+    ids = [t['id'] for t in tracks if t['id']]
+    features = []
+    for i in range(0, len(ids), 100):
+        batch = ids[i:i + 100]
+        result = sp.audio_features(batch)
+        if result:
+            features.extend([f for f in result if f])
+
+    print(f"[+] Got audio features for {len(features)} tracks\n")
+
+    if features:
+        sample = features[0]
+        print("  Sample track features:")
+        print(f"    Danceability: {sample['danceability']}")
+        print(f"    Energy:       {sample['energy']}")
+        print(f"    Valence:      {sample['valence']}  (higher = happier)")
+        print(f"    Tempo:        {sample['tempo']} BPM")
+        print(f"    Acousticness: {sample['acousticness']}")
+
+    return features
 
 sp = connect()
 playlists = get_playlists(sp)
 
-print("\nEnter playlist number to see tracks: ", end="")
+print("\nEnter playlist number to analyse: ", end="")
 choice = int(input()) - 1
 tracks = get_tracks(sp, playlists[choice])
+features = get_audio_features(sp, tracks)
