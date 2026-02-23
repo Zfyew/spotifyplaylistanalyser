@@ -99,7 +99,6 @@ def analyse_mood(features):
     print(f"  Average tempo:        {avg_tempo:.0f} BPM")
     print(f"  Average acousticness: {avg_acoustic:.2f} / 1.0")
 
-    # give the playlist a rough vibe label based on energy and mood
     if avg_energy > 0.7 and avg_valence > 0.6:
         vibe = "High energy and upbeat"
     elif avg_energy > 0.7 and avg_valence <= 0.6:
@@ -113,6 +112,16 @@ def analyse_mood(features):
 
     print(f"\n  Playlist vibe: {vibe}")
 
+def top_artists(tracks):
+    print("\n[*] Top artists in this playlist...\n")
+    # count how many tracks each artist has
+    counts = Counter([t['artist'] for t in tracks]).most_common(10)
+    print(f"  {'Artist':<30} {'Tracks':>6}")
+    print(f"  {'-'*38}")
+    for artist, count in counts:
+        bar = "█" * count
+        print(f"  {artist:<30} {count:>4}  {bar}")
+
 sp = connect()
 playlists = get_playlists(sp)
 
@@ -122,3 +131,4 @@ tracks = get_tracks(sp, playlists[choice])
 features = get_audio_features(sp, tracks)
 get_genre_breakdown(sp, tracks)
 analyse_mood(features)
+top_artists(tracks)
