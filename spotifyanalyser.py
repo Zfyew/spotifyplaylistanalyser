@@ -1,3 +1,14 @@
+# Spotify Playlist Analyser
+# v5: energy and mood pattern analysis
+
+import spotipy
+from spotipy.oauth2 import SpotifyOAuth
+from collections import Counter
+
+CLIENT_ID = "f5b45838eb4b4e008f461f2bd6c54bbc"
+CLIENT_SECRET = "7cf4d6f251ca49b791a784e6b929c4fe"
+REDIRECT_URI = "http://127.0.0.1:8888/callback"
+
 SCOPE = "playlist-read-private user-library-read"
 
 def connect():
@@ -51,7 +62,6 @@ def get_audio_features(sp, tracks):
 
 def get_genre_breakdown(sp, tracks):
     print("\n[*] Analysing genres...\n")
-    # grab unique artist ids and batch them — 50 per request is the limit
     artist_ids = list(set([t['artist_id'] for t in tracks if t['artist_id']]))
     genres = []
     for i in range(0, len(artist_ids), 50):
@@ -62,15 +72,46 @@ def get_genre_breakdown(sp, tracks):
 
     if not genres:
         print("  No genre data found for this playlist.")
-        return
+        return []
 
     counts = Counter(genres).most_common(10)
-    print("  Top genres in this playlist:\n")
+    print("  Top genres:\n")
     for genre, count in counts:
         bar = "█" * count
         print(f"  {genre:<30} {bar} ({count})")
-
     return counts
+
+def analyse_mood(features):
+    print("\n[*] Mood and energy analysis...\n")
+    if not features:
+        print("  No audio features available.")
+        return
+
+    avg_energy = sum(f['energy'] for f in features) / len(features)
+    avg_valence = sum(f['valence'] for f in features) / len(features)
+    avg_dance = sum(f['danceability'] for f in features) / len(features)
+    avg_tempo = sum(f['tempo'] for f in features) / len(features)
+    avg_acoustic = sum(f['acousticness'] for f in features) / len(features)
+
+    print(f"  Average energy:       {avg_energy:.2f} / 1.0")
+    print(f"  Average mood:         {avg_valence:.2f} / 1.0  (higher = happier)")
+    print(f"  Average danceability: {avg_dance:.2f} / 1.0")
+    print(f"  Average tempo:        {avg_tempo:.0f} BPM")
+    print(f"  Average acousticness: {avg_acoustic:.2f} / 1.0")
+
+    # give the playlist a rough vibe label based on energy and mood
+    if avg_energy > 0.7 and avg_valence > 0.6:
+        vibe = "High energy and upbeat"
+    elif avg_energy > 0.7 and avg_valence <= 0.6:
+        vibe = "Intense but darker in tone"
+    elif avg_energy <= 0.4 and avg_valence <= 0.4:
+        vibe = "Low energy and melancholic"
+    elif avg_energy <= 0.4 and avg_valence > 0.4:
+        vibe = "Calm and relaxed"
+    else:
+        vibe = "Mixed energy and mood"
+
+    print(f"\n  Playlist vibe: {vibe}")
 
 sp = connect()
 playlists = get_playlists(sp)
@@ -80,3 +121,4 @@ choice = int(input()) - 1
 tracks = get_tracks(sp, playlists[choice])
 features = get_audio_features(sp, tracks)
 get_genre_breakdown(sp, tracks)
+analyse_mood(features)
