@@ -1,14 +1,3 @@
-# Spotify Playlist Analyser
-# v1: connect to Spotify API and authenticate
-
-import spotipy
-from spotipy.oauth2 import SpotifyOAuth
-
-# swap these out for your own credentials from the Spotify developer dashboard
-CLIENT_ID = "f5b45838eb4b4e008f461f2bd6c54bbc"
-CLIENT_SECRET = "7cf4d6f251ca49b791a784e6b929c4fe"
-REDIRECT_URI = "http://127.0.0.1:8888/callback"
-
 SCOPE = "playlist-read-private user-library-read"
 
 def connect():
@@ -43,14 +32,14 @@ def get_tracks(sp, playlist):
                 tracks.append({
                     'name': track['name'],
                     'artist': track['artists'][0]['name'],
+                    'artist_id': track['artists'][0]['id'],
                     'id': track['id']
                 })
         response = sp.next(response) if response['next'] else None
     return tracks
 
 def get_audio_features(sp, tracks):
-    print("\n[*] Pulling audio features for each track...\n")
-    # spotify limits to 100 ids per request so we batch them
+    print("\n[*] Pulling audio features...\n")
     ids = [t['id'] for t in tracks if t['id']]
     features = []
     for i in range(0, len(ids), 100):
@@ -58,19 +47,30 @@ def get_audio_features(sp, tracks):
         result = sp.audio_features(batch)
         if result:
             features.extend([f for f in result if f])
-
-    print(f"[+] Got audio features for {len(features)} tracks\n")
-
-    if features:
-        sample = features[0]
-        print("  Sample track features:")
-        print(f"    Danceability: {sample['danceability']}")
-        print(f"    Energy:       {sample['energy']}")
-        print(f"    Valence:      {sample['valence']}  (higher = happier)")
-        print(f"    Tempo:        {sample['tempo']} BPM")
-        print(f"    Acousticness: {sample['acousticness']}")
-
     return features
+
+def get_genre_breakdown(sp, tracks):
+    print("\n[*] Analysing genres...\n")
+    # grab unique artist ids and batch them — 50 per request is the limit
+    artist_ids = list(set([t['artist_id'] for t in tracks if t['artist_id']]))
+    genres = []
+    for i in range(0, len(artist_ids), 50):
+        batch = artist_ids[i:i + 50]
+        result = sp.artists(batch)
+        for artist in result['artists']:
+            genres.extend(artist['genres'])
+
+    if not genres:
+        print("  No genre data found for this playlist.")
+        return
+
+    counts = Counter(genres).most_common(10)
+    print("  Top genres in this playlist:\n")
+    for genre, count in counts:
+        bar = "█" * count
+        print(f"  {genre:<30} {bar} ({count})")
+
+    return counts
 
 sp = connect()
 playlists = get_playlists(sp)
@@ -79,3 +79,4 @@ print("\nEnter playlist number to analyse: ", end="")
 choice = int(input()) - 1
 tracks = get_tracks(sp, playlists[choice])
 features = get_audio_features(sp, tracks)
+get_genre_breakdown(sp, tracks)
